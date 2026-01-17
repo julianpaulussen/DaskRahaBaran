@@ -9,10 +9,14 @@ In this work, we improve the runtimes of Raha and Baran by proposing a new Dask-
 Make sure you have Python 3.10 installed.
 
 To install Raha and Baran with Dask using the github repository:
-```console
+
+```
 git clone https://github.com/D2IP-TUB/DaskRahaBaran.git
 cd DaskRahaBaran
 pip install -e .[dask]
+
+# if no matches found, try to escape the brackets
+pip install -e .\[dask\]
 ```
 
 To uninstall them, you can run:
