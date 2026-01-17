@@ -39,7 +39,16 @@ setup(
             "dask==2023.10.1",
             "distributed==2023.10.1",
             "dask[dataframe]==2023.10.1",
-        ]
+        ],
+        "waschanlage": [
+            "ui-system @ file:///home/julian/Projects/waschanlage/python-sdk",
+        ],
+        "all": [
+            "dask==2023.10.1",
+            "distributed==2023.10.1",
+            "dask[dataframe]==2023.10.1",
+            "ui-system @ file:///home/julian/Projects/waschanlage/python-sdk",
+        ],
     },
     include_package_data=True,
 )

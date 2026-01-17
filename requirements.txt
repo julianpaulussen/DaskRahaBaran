@@ -13,3 +13,6 @@ fastcluster==1.2.6
 dask==2023.10.1
 dask[dataframe]==2023.10.1
 distributed==2023.10.1
+
+# optional: waschanlage UI integration
+# -e /home/julian/Projects/waschanlage/python-sdk
