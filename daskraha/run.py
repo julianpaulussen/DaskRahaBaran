@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import os, logging
+import requests
 import daskraha.dask_version.detection_parallel as dp
-import daskraha.dask_version.dataset_parallel as ds
 from daskraha.dask_version import container
 
 
@@ -30,13 +31,20 @@ def label_interactive(app, dataset_par):
         dataset_par.labeled_tuples[row] = 1
 
 
+def evaluate_with_dias(csv_content):
+    url = "https://dias-479914.appspot.com/DataCleaningEvaluator/"
+    r = requests.post(url, data={"value": csv_content})
+    if r.status_code != 200:
+        print(f"Error: {r.status_code}")
+    print(r.text)
+
+
 def main():
-    import os, logging
-    base_path = Path(__file__).parent.parent / "datasets" / "beers"
+    base_path = Path(__file__).parent.parent / "datasets" / "dias"
     dataset_dict = {
-        "name": "beers",
+        "name": "dias",
         "path": str(base_path / "dirty.csv"),
-        "clean_path": str(base_path / "clean.csv"),
+        "clean_path": str(base_path / "dirty.csv"),  # dummy for init
     }
 
     app = dp.DetectionParallel()
@@ -59,11 +67,25 @@ def main():
 
     # Results
     print(f"\nDetected {len(dataset_par.detected_cells)} error cells")
-    p, r, f = dataset_par.get_data_cleaning_evaluation(dataset_par.detected_cells)[:3]
-    print(f"Precision={p:.2f} Recall={r:.2f} F1={f:.2f}")
+
+    # Create output CSV with "xxx" for detected errors
+    df = container.shared_dataframe.read().copy()
+    for (row, col) in dataset_par.detected_cells:
+        df.iloc[row, col] = "xxx"
+
+    # Save to clean.csv
+    output_path = base_path / "clean.csv"
+    df.to_csv(output_path, index=False)
+    print(f"\nSaved to {output_path}")
+
+    # Evaluate via DIAS web service
+    csv_content = df.to_csv(index=False)
+    print("Sending to DIAS evaluator...")
+    evaluate_with_dias(csv_content)
 
     app.cleanup_raha(dataset_par)
     client.shutdown()
+
 
 if __name__ == "__main__":
     main()
