@@ -11,8 +11,37 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from typing_extensions import TypedDict
+
 import numpy
 import pandas
+
+
+# =============================================================================
+# TYPE DEFINITIONS FOR UI RETURN VALUES
+# =============================================================================
+
+class ConfigurationResult(TypedDict):
+    """Return type from configuration UI component."""
+    labeling_budget: int
+
+
+class PipelineConfigurationResult(TypedDict):
+    """Return type from full pipeline configuration UI component."""
+    datasetName: str
+    labelingBudget: int
+    pipelineName: str
+
+
+class LabelingResult(TypedDict):
+    """Return type from simple-labeling UI component."""
+    labels: List[Dict[str, Any]]  # [{row_id: int, user_label: str}, ...]
+
+
+class CellLabelingResult(TypedDict):
+    """Return type from csv_cell_labeler UI component."""
+    is_correct: bool
+    correction: Optional[str]
 
 from ui_system import ui
 
@@ -39,9 +68,12 @@ def configure_pipeline(
     existing_datasets: Optional[List[str]] = None,
     default_budget: int = 10,
     default_name: str = "data-cleaning-pipeline"
-) -> Dict[str, Any]:
+) -> PipelineConfigurationResult:
     """
-    Configure the data cleaning pipeline.
+    UI Component: Configure the data cleaning pipeline.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, and the UI's response becomes the return value.
 
     This component allows the user to:
     - Select or specify a dataset
@@ -49,29 +81,33 @@ def configure_pipeline(
     - Name the pipeline run
 
     Args:
-        existing_datasets: List of available dataset names
-        default_budget: Default labeling budget (1-100)
-        default_name: Default pipeline name
+        existing_datasets: List of available dataset names (sent to UI)
+        default_budget: Default labeling budget 1-100 (sent to UI)
+        default_name: Default pipeline name (sent to UI)
 
     Returns:
         Configuration dict with datasetName, labelingBudget, and pipelineName
+        (returned from UI, not from this function body)
     """
-    # The UI will return the configuration from user interaction
-    return {}
+    pass  # UI handles this - function body never executes
 
 
 @ui.component('simple-configurations')
-def configure_labeling_budget(default_budget: int = 10) -> Dict[str, int]:
+def configure_labeling_budget(default_budget: int = 10) -> ConfigurationResult:
     """
-    Simple configuration to set the labeling budget.
+    UI Component: Simple configuration to set the labeling budget.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, and the UI's response becomes the return value.
 
     Args:
-        default_budget: Default labeling budget (10)
+        default_budget: Default labeling budget (sent to UI as default)
 
     Returns:
         Configuration dict with labeling_budget
+        (returned from UI, not from this function body)
     """
-    return {}
+    pass  # UI handles this - function body never executes
 
 
 # =============================================================================
@@ -166,13 +202,17 @@ def setup_detection(
 # DETECTION PHASE - INTERACTIVE LABELING
 # =============================================================================
 
-def _prepare_detection_samples(
+@ui.component('function')
+def prepare_detection_samples(
     app: DetectionParallel,
     dataset: dp.DatasetParallel,
     budget: int
 ) -> List[Dict[str, Any]]:
     """
-    Prepare sampled tuples for the labeling UI.
+    PREPARE step: Sample tuples and format for labeling UI.
+
+    This function samples tuples from the dataset and prepares them
+    in a format suitable for the labeling UI component.
 
     Args:
         app: DetectionParallel instance
@@ -213,14 +253,18 @@ def _prepare_detection_samples(
     return samples
 
 
-def _apply_detection_labels(
+@ui.component('function')
+def apply_detection_labels(
     dataset: dp.DatasetParallel,
     samples: List[Dict[str, Any]],
     labels: List[Dict[str, Any]],
     clean_dataframe: pandas.DataFrame
 ) -> None:
     """
-    Apply user labels from the UI to the dataset.
+    PROCESS step: Apply user labels from the UI to the dataset.
+
+    This function takes the labels returned from the UI and applies them
+    to the dataset's labeled_tuples and labeled_cells structures.
 
     Args:
         dataset: DatasetParallel instance
@@ -272,21 +316,24 @@ def _apply_detection_labels(
 def label_detection_samples(
     budget: int,
     data: List[Dict[str, Any]]
-) -> Dict[str, List[Dict[str, Any]]]:
+) -> LabelingResult:
     """
-    Interactive labeling of sampled tuples for error detection.
+    UI Component: Interactive labeling of sampled tuples for error detection.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, and the UI's response becomes the return value.
 
     The user reviews each sampled row and marks it as correct, wrong, or skipped.
 
     Args:
-        budget: Number of rows to label
-        data: List of sample data records to show the user
+        budget: Number of rows to label (sent to UI)
+        data: List of sample data records to show the user (sent to UI)
 
     Returns:
-        Dictionary with 'labels' key containing list of label results
+        LabelingResult with 'labels' key containing list of label results
+        (returned from UI, not from this function body)
     """
-    # The UI returns the labels from user interaction
-    return {}
+    pass  # UI handles this - function body never executes
 
 
 @ui.component('function')
@@ -316,8 +363,8 @@ def run_detection_labeling(
             app.sample_tuple(dataset)
             app.label_with_ground_truth(dataset, differences_dict, clean_dataframe)
     else:
-        # Prepare samples for UI
-        samples = _prepare_detection_samples(app, dataset, app.LABELING_BUDGET)
+        # PREPARE: Sample tuples and format for UI
+        samples = prepare_detection_samples(app, dataset, app.LABELING_BUDGET)
 
         # Format data for simple-labeling component
         ui_data = []
@@ -333,15 +380,15 @@ def run_detection_labeling(
                 "email": row_text  # Using email field for row data display
             })
 
-        # Get labels from user via UI
+        # DISPLAY: Get labels from user via UI
         result = label_detection_samples(
             budget=app.LABELING_BUDGET,
             data=ui_data
         )
 
-        # Apply labels to dataset
+        # PROCESS: Apply labels to dataset
         labels = result.get("labels", [])
-        _apply_detection_labels(dataset, samples, labels, clean_dataframe)
+        apply_detection_labels(dataset, samples, labels, clean_dataframe)
 
     # Propagate labels
     app.propagate_labels(dataset)
@@ -356,19 +403,51 @@ def run_detection_labeling(
 # DETECTION PHASE - RESULTS
 # =============================================================================
 
+@ui.component('function')
+def format_detection_results(
+    detected_cells: Dict[Tuple[int, int], str],
+    dataset: dp.DatasetParallel
+) -> List[Dict[str, Any]]:
+    """
+    PREPARE step: Format detection results for display in the UI.
+
+    Args:
+        detected_cells: Dictionary of detected error cells
+        dataset: DatasetParallel instance for metrics
+
+    Returns:
+        List of result dictionaries formatted for the UI
+    """
+    metrics = dataset.get_data_cleaning_evaluation(detected_cells)[:3]
+    precision, recall, f1 = metrics
+
+    return [
+        {"metric": "Detected Cells", "value": str(len(detected_cells))},
+        {"metric": "Precision", "value": f"{precision:.2%}"},
+        {"metric": "Recall", "value": f"{recall:.2%}"},
+        {"metric": "F1 Score", "value": f"{f1:.2%}"},
+    ]
+
+
 @ui.component('simple-results')
 def show_detection_results(
     results: List[Dict[str, Any]],
     title: str = "Detection Results"
 ) -> None:
     """
-    Display error detection results.
+    UI Component: Display error detection results.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, which displays them and waits for user acknowledgment.
 
     Args:
-        results: List of result dictionaries with row_number, ground_truth, user_label
-        title: Title for the results page
+        results: List of result dictionaries with metric/value pairs (sent to UI)
+        title: Title for the results page (sent to UI)
+
+    Returns:
+        None - UI displays results and blocks until user clicks 'Continue'
     """
-    pass
+    pass  # UI handles this - function body never executes
 
 
 @ui.component('function')
@@ -497,12 +576,16 @@ def setup_correction(
 # CORRECTION PHASE - INTERACTIVE LABELING
 # =============================================================================
 
-def _prepare_correction_samples(
+@ui.component('function')
+def prepare_correction_sample(
     app: CorrectionParallel,
     dataset: dp.DatasetParallel
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
-    Prepare a single sample for correction labeling.
+    PREPARE step: Sample a tuple and format for correction labeling UI.
+
+    This function samples a tuple from the dataset and prepares it
+    in a format suitable for the correction labeling UI component.
 
     Args:
         app: CorrectionParallel instance
@@ -545,23 +628,27 @@ def label_correction_cell(
     row: int,
     column: str,
     context_rows: int = 3
-) -> bool:
+) -> CellLabelingResult:
     """
-    Interactive cell-level labeling for error correction.
+    UI Component: Interactive cell-level labeling for error correction.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, and the UI's response becomes the return value.
 
     Shows a CSV table with a highlighted cell, and the user provides
     the correction for that cell.
 
     Args:
-        csv_path: Path to the CSV file
-        row: Row index of the cell to correct
-        column: Column name of the cell to correct
-        context_rows: Number of surrounding rows to show for context
+        csv_path: Path to the CSV file (sent to UI)
+        row: Row index of the cell to correct (sent to UI)
+        column: Column name of the cell to correct (sent to UI)
+        context_rows: Number of surrounding rows to show for context (sent to UI)
 
     Returns:
-        User's validation decision
+        CellLabelingResult with is_correct and optional correction value
+        (returned from UI, not from this function body)
     """
-    return False
+    pass  # UI handles this - function body never executes
 
 
 @ui.component('function')
@@ -648,6 +735,53 @@ def run_correction_labeling(
 # =============================================================================
 # CORRECTION PHASE - RESULTS
 # =============================================================================
+
+@ui.component('function')
+def format_correction_results(
+    corrected_cells: Dict[Tuple[int, int], str],
+    dataset: dp.DatasetParallel
+) -> List[Dict[str, Any]]:
+    """
+    PREPARE step: Format correction results for display in the UI.
+
+    Args:
+        corrected_cells: Dictionary of corrected cells
+        dataset: DatasetParallel instance for metrics
+
+    Returns:
+        List of result dictionaries formatted for the UI
+    """
+    metrics = dataset.get_data_cleaning_evaluation(corrected_cells)[-3:]
+    precision, recall, f1 = metrics
+
+    return [
+        {"metric": "Corrected Cells", "value": str(len(corrected_cells))},
+        {"metric": "Precision", "value": f"{precision:.2%}"},
+        {"metric": "Recall", "value": f"{recall:.2%}"},
+        {"metric": "F1 Score", "value": f"{f1:.2%}"},
+    ]
+
+
+@ui.component('simple-results')
+def show_correction_results(
+    results: List[Dict[str, Any]],
+    title: str = "Correction Results"
+) -> None:
+    """
+    UI Component: Display error correction results.
+
+    NOTE: This function body never executes. The decorator sends parameters
+    to the UI, which displays them and waits for user acknowledgment.
+
+    Args:
+        results: List of result dictionaries with metric/value pairs (sent to UI)
+        title: Title for the results page (sent to UI)
+
+    Returns:
+        None - UI displays results and blocks until user clicks 'Continue'
+    """
+    pass  # UI handles this - function body never executes
+
 
 @ui.component('function')
 def finalize_correction(
@@ -838,6 +972,10 @@ def main():
     This can be run directly or the individual components can be
     imported and used separately.
     """
+    # Get labeling budget from user via UI
+    config = configure_labeling_budget(default_budget=10)
+    labeling_budget = config["labeling_budget"]
+
     # Default to beers dataset for demonstration
     # Beers is a smaller dataset suitable for less powerful machines
     datasets_dir = Path(__file__).parent.parent / "datasets"
@@ -846,8 +984,8 @@ def main():
         dirty_path=str(datasets_dir / "beers" / "dirty.csv"),
         clean_path=str(datasets_dir / "beers" / "clean.csv"),
         dataset_name="beers",
-        detection_budget=10,        
-        correction_budget=10,
+        detection_budget=labeling_budget,
+        correction_budget=labeling_budget,
         verbose=True,
         use_ground_truth=False  # Set to False for interactive UI mode
     )
