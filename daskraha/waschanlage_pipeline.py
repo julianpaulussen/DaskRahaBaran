@@ -910,6 +910,16 @@ def run_full_pipeline(
         cleanup=True
     )
 
+    # Show detection results via UI
+    if not use_ground_truth:
+        detection_results = [
+            {"metric": "Detected Cells", "value": str(len(detected_cells))},
+            {"metric": "Precision", "value": f"{detection_metrics[0]:.2%}"},
+            {"metric": "Recall", "value": f"{detection_metrics[1]:.2%}"},
+            {"metric": "F1 Score", "value": f"{detection_metrics[2]:.2%}"},
+        ]
+        show_detection_results(results=detection_results, title="Detection Results")
+
     # =========================================================================
     # PHASE 2: ERROR CORRECTION (Baran)
     # =========================================================================
@@ -945,6 +955,16 @@ def run_full_pipeline(
         client=cor_client,
         cleanup=True
     )
+
+    # Show correction results via UI
+    if not use_ground_truth:
+        correction_results = [
+            {"metric": "Corrected Cells", "value": str(len(corrected_cells))},
+            {"metric": "Precision", "value": f"{correction_metrics[0]:.2%}"},
+            {"metric": "Recall", "value": f"{correction_metrics[1]:.2%}"},
+            {"metric": "F1 Score", "value": f"{correction_metrics[2]:.2%}"},
+        ]
+        show_correction_results(results=correction_results, title="Correction Results")
 
     # =========================================================================
     # FINAL SUMMARY
