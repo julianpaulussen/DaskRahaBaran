@@ -96,7 +96,7 @@ class DetectionParallel(Detection):
             n_workers=num_workers,
             threads_per_worker=1,
             processes=True,
-            memory_limit="100GB",
+            memory_limit="1.5GB",
             silence_logs=logging_level,
             dashboard_address=None,
         )
@@ -131,8 +131,7 @@ class DetectionParallel(Detection):
         outputted_cells = {j: {} for j in range(dataset.dataframe_num_cols)}
         dataframe = worker.shared_df
         folder_path = os.path.join(tempfile.gettempdir(), dataset.name + "/")
-        if not os.path.exists(folder_path):
-            os.mkdir(folder_path)
+        os.makedirs(folder_path, exist_ok=True)
         dataset_path = os.path.join(
             tempfile.gettempdir(),
             dataset.name + "/" + dataset.name + "-" + strategy_name_hash + ".csv",
@@ -981,7 +980,8 @@ class DetectionParallel(Detection):
         if self.VERBOSE:
             print("Starting Cluster...")
         client = self.start_dask_cluster(
-            num_workers=os.cpu_count(), logging_level=logging.ERROR
+            #num_workers=os.cpu_count(), logging_level=logging.ERROR
+            num_workers=2, logging_level=logging.ERROR
         )
         client.run(self.init_workers)
         if self.VERBOSE:
@@ -1047,9 +1047,9 @@ class DetectionParallel(Detection):
 ########################################
 if __name__ == "__main__":
     dataset_dictionary = {
-        "name": "flights",
-        "path": str(Path("./datasets/flights/dirty.csv").resolve()),
-        "clean_path": str(Path("./datasets/flights/clean.csv").resolve()),
+        "name": "hospital",
+        "path": str(Path("./datasets/hospital/dirty.csv").resolve()),
+        "clean_path": str(Path("./datasets/hospital/clean.csv").resolve()),
     }
     dataset = dp.DatasetParallel(dataset_dictionary)
     print("________________")
