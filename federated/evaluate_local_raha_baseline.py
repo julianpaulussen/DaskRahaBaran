@@ -28,8 +28,8 @@ def _run_client_subprocess(project_root_str, data_dict, labeling_budget, result_
     detector.VERBOSE = False
     detector.LABELING_BUDGET = labeling_budget
     try:
-        detected_cells = detector.run(data_dict)
-        result_queue.put(detected_cells)
+        result = detector.run(data_dict)
+        result_queue.put(result)
     except Exception as e:
         result_queue.put(e)
 
@@ -103,7 +103,7 @@ def run_local_raha_baseline(dataset_name, n_clients=2, total_label_budget=None, 
             if isinstance(result, Exception):
                 raise result
 
-            detected_cells = result
+            detected_cells = result["detected_cells"]
 
             # Map results back to global (row, col)
             for (local_row, col), val in detected_cells.items():

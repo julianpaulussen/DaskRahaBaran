@@ -1058,7 +1058,11 @@ class DetectionParallel(Detection):
         except Exception:
             pass
 
-        return dataset_par.detected_cells
+        return {
+            "detected_cells": dataset_par.detected_cells,
+            "classifier_weights": getattr(dataset_par, "column_classifier_weights", {}),
+            "fallback_labels": getattr(dataset_par, "column_fallback_labels", {}),
+        }
 
 
 ########################################
