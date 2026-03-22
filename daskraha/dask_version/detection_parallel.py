@@ -51,7 +51,7 @@ class DetectionParallel(Detection):
         self.SAVE_RESULTS = False
         self.CLUSTERING_BASED_SAMPLING = True
         self.STRATEGY_FILTERING = False
-        self.CLASSIFICATION_MODEL = "GBC"  # ["ABC", "DTC", "GBC", "GNB", "SGDC", "SVC"]
+        self.CLASSIFICATION_MODEL = "SGDC"  # ["ABC", "DTC", "GBC", "GNB", "SGDC", "SVC"]
         self.LABEL_PROPAGATION_METHOD = HOMOGENEITY  # ["homogeneity", "majority"]
         self.ERROR_DETECTION_ALGORITHMS = [
             OUTLIER_DETECTION,
@@ -868,12 +868,17 @@ class DetectionParallel(Detection):
         ]
         x_test = feature_vectors
 
+        classifier_weights = None
+        fallback_label = None
+
         # Check if all cells are 1's
         if sum(y_train) == len(y_train):
             predicted_labels = numpy.ones(dataset.dataframe_num_rows)
+            fallback_label = 1
         # Check if all cells are 0's
         elif sum(y_train) == 0 or len(x_train[0]) == 0:
             predicted_labels = numpy.zeros(dataset.dataframe_num_rows)
+            fallback_label = 0
         else:
             match classification_model_name:
                 case "ABC":
@@ -908,6 +913,8 @@ class DetectionParallel(Detection):
                     )
             classification_model.fit(x_train, y_train)
             predicted_labels = classification_model.predict(x_test)
+            if hasattr(classification_model, "coef_"):
+                classifier_weights = (classification_model.coef_, classification_model.intercept_)
 
         for i, predicted_label in enumerate(predicted_labels):
             if (i in labeled_tuples and extended_labeled_cells[(i, column_index)]) or (
@@ -918,7 +925,7 @@ class DetectionParallel(Detection):
             print(
                 "A classifier is trained and applied on column {}.".format(column_index)
             )
-        return detected_cells_dictionary
+        return detected_cells_dictionary, classifier_weights, fallback_label
 
     def predict_labels(self, dataset):
         """
@@ -945,7 +952,19 @@ class DetectionParallel(Detection):
         )
         results = client.gather(futures=futures, direct=True)[0]
         dataset.detected_cells = {
-            cell: "JUST A DUMMY VALUE" for result in results for cell in result
+            cell: "JUST A DUMMY VALUE"
+            for detected_cells, _, _ in results
+            for cell in detected_cells
+        }
+        dataset.column_classifier_weights = {
+            col_idx: weights
+            for col_idx, (_, weights, _) in enumerate(results)
+            if weights is not None
+        }
+        dataset.column_fallback_labels = {
+            col_idx: fallback
+            for col_idx, (_, _, fallback) in enumerate(results)
+            if fallback is not None
         }
 
         end_time = time.time()
